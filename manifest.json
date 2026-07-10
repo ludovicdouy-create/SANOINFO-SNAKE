@@ -1,0 +1,32 @@
+{
+  "name": "SANOINFO SNAKE",
+  "short_name": "SanoSnake",
+  "description": "Un Snake revisité version informaticien : avale des tasses de café, des circuits imprimés et des ordinateurs... mais évite les bugs !",
+  "start_url": "/SANOINFO-SNAKE/",
+  "scope": "/SANOINFO-SNAKE/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#081525",
+  "theme_color": "#081525",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
