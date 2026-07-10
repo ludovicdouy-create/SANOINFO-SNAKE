@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>SANOINFO SNAKE — le serpent des devs</title>
+<style>
+  :root{
+    --pcb:#0d2818;          /* vert carte mère profond */
+    --pcb-light:#14381f;
+    --copper:#c98a4b;       /* pistes cuivre */
+    --copper-dim:#7a5530;
+    --data:#5ff0c0;         /* paquet de données (serpent) */
+    --data-dim:#2a9e7a;
+    --alert:#ff6b5e;
+    --gold:#ffd166;
+    --ink:#dff5e8;
+    --mono:'Courier New', ui-monospace, monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    background:
+      radial-gradient(1200px 600px at 50% -10%, #16402a 0%, var(--pcb) 55%),
+      var(--pcb);
+    color:var(--ink);
+    font-family:var(--mono);
+    display:flex;flex-direction:column;align-items:center;
+    min-height:100vh;padding:14px;
+    touch-action:none;
+    overflow:hidden;
+  }
+  /* pistes cuivre décoratives en fond */
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;opacity:.12;
+    background-image:
+      linear-gradient(90deg, var(--copper) 1px, transparent 1px),
+      linear-gradient(var(--copper) 1px, transparent 1px);
+    background-size:64px 64px;
+  }
+
+  header{display:flex;flex-direction:column;align-items:center;gap:2px;margin-bottom:10px;z-index:1}
+  h1{
+    font-size:clamp(20px,4.5vw,30px);letter-spacing:.35em;font-weight:700;
+    color:var(--data);text-shadow:0 0 14px rgba(95,240,192,.45);
+  }
+  h1 .dot{color:var(--copper)}
+  .tagline{font-size:11px;color:var(--copper);letter-spacing:.18em;text-transform:uppercase}
+
+  .hud{
+    display:flex;gap:10px;margin:10px 0;z-index:1;flex-wrap:wrap;justify-content:center;
+  }
+  .chip{
+    background:var(--pcb-light);border:1px solid var(--copper-dim);
+    border-radius:4px;padding:6px 12px;font-size:12px;min-width:96px;text-align:center;
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.35);
+  }
+  .chip b{display:block;font-size:16px;color:var(--gold);margin-top:2px}
+  .chip small{color:var(--copper);letter-spacing:.1em;text-transform:uppercase;font-size:9px}
+
+  #wrap{position:relative;z-index:1;filter:drop-shadow(0 8px 30px rgba(0,0,0,.5))}
+  canvas{
+    display:block;border:2px solid var(--copper-dim);border-radius:6px;
+    background:linear-gradient(160deg,#0f2f1c,#0a2113);
+  }
+  /* coins de carte mère */
+  #wrap::before,#wrap::after{
+    content:"◉";position:absolute;color:var(--copper);font-size:10px;opacity:.8;
+  }
+  #wrap::before{top:6px;left:8px} #wrap::after{bottom:6px;right:8px}
+
+  #overlay{
+    position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(6,20,12,.88);border-radius:6px;gap:14px;text-align:center;padding:20px;
+    backdrop-filter:blur(2px);
+  }
+  #overlay.hidden{display:none}
+  #overlay h2{color:var(--data);letter-spacing:.2em;font-size:20px}
+  #overlay p{font-size:12px;line-height:1.7;color:var(--ink);max-width:340px}
+  #overlay .legend{display:flex;gap:16px;font-size:11px;color:var(--copper);flex-wrap:wrap;justify-content:center}
+  #overlay .legend span{display:flex;align-items:center;gap:5px}
+  button{
+    font-family:var(--mono);font-size:14px;letter-spacing:.15em;cursor:pointer;
+    background:var(--data);color:#06281a;border:none;border-radius:4px;padding:12px 26px;font-weight:700;
+    box-shadow:0 0 18px rgba(95,240,192,.35);
+    transition:transform .12s ease;
+  }
+  button:hover{transform:translateY(-2px)}
+  button:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+  .grade{color:var(--gold);font-size:13px;letter-spacing:.12em}
+
+  #toast{
+    position:absolute;top:10px;left:50%;transform:translateX(-50%);
+    background:rgba(20,56,31,.92);border:1px solid var(--copper-dim);border-radius:4px;
+    padding:5px 14px;font-size:11px;color:var(--gold);opacity:0;transition:opacity .25s;
+    pointer-events:none;white-space:nowrap;
+  }
+  #toast.show{opacity:1}
+
+  /* pad tactile mobile */
+  #pad{display:none;margin-top:12px;z-index:1;grid-template-columns:repeat(3,58px);grid-template-rows:repeat(2,50px);gap:6px}
+  #pad button{padding:0;font-size:20px;background:var(--pcb-light);color:var(--data);border:1px solid var(--copper-dim);box-shadow:none}
+  @media (pointer:coarse){ #pad{display:grid} }
+  footer{margin-top:10px;font-size:10px;color:var(--copper);letter-spacing:.12em;z-index:1;text-align:center}
+  @media (prefers-reduced-motion:reduce){ button{transition:none} }
+</style>
+</head>
+<body>
+<header>
+  <h1>SANOINFO<span class="dot">·</span>SNAKE</h1>
+  <div class="tagline">le serpent qui debug à la caféine</div>
+</header>
+
+<div class="hud">
+  <div class="chip"><small>Score</small><b id="score">0</b></div>
+  <div class="chip"><small>Grade</small><b id="grade" style="font-size:12px;line-height:1.4">Stagiaire</b></div>
+  <div class="chip"><small>Record</small><b id="best">0</b></div>
+</div>
+
+<div id="wrap">
+  <canvas id="game" width="420" height="420" aria-label="Zone de jeu Byte Snake"></canvas>
+  <div id="toast"></div>
+  <div id="overlay">
+    <h2>BOOT&gt; PRÊT_</h2>
+    <p>Tu es un bus de données affamé sur la carte mère.<br>Avale tout ce qui traîne au bureau&nbsp;!</p>
+    <div class="legend">
+      <span>☕ Café +10</span>
+      <span>🟩 Circuit +25</span>
+      <span>💻 Ordi +50</span>
+      <span>🐛 Bug = −3 segments&nbsp;!</span>
+    </div>
+    <p style="font-size:11px;color:var(--copper)">Flèches / ZQSD / WASD · swipe sur mobile · Espace = pause</p>
+    <button id="btnStart">COMPILER &amp; JOUER</button>
+  </div>
+</div>
+
+<div id="pad" aria-hidden="true">
+  <span></span><button data-d="up">▲</button><span></span>
+  <button data-d="left">◀</button><button data-d="down">▼</button><button data-d="right">▶</button>
+</div>
+
+<footer>SANOINFO SYS.OK — carte mère v4.2 — aucune tasse de café n'a été maltraitée</footer>
+
+<script>
+(() => {
+  const cvs = document.getElementById('game');
+  const ctx = cvs.getContext('2d');
+  const overlay = document.getElementById('overlay');
+  const btn = document.getElementById('btnStart');
+  const scoreEl = document.getElementById('score');
+  const bestEl = document.getElementById('best');
+  const gradeEl = document.getElementById('grade');
+  const toast = document.getElementById('toast');
+
+  // Grille adaptative (mobile)
+  const CELL = 21, N = 20;
+  function fit(){
+    const w = Math.min(window.innerWidth - 40, 440);
+    const size = Math.floor(w / N) * N;
+    cvs.style.width = size + 'px';
+    cvs.style.height = size + 'px';
+  }
+  fit(); addEventListener('resize', fit);
+  cvs.width = N * CELL; cvs.height = N * CELL;
+
+  // ------- État -------
+  let snake, dir, nextDir, food, bug, bugTimer, score, best = 0, alive = false, paused = false;
+  let speed, tickAcc = 0, lastT = 0, particles = [];
+
+  const GRADES = [
+    [0,'Stagiaire'],[100,'Dev junior'],[250,'Dev confirmé'],
+    [450,'Lead dev'],[700,'Architecte'],[1000,'CTO ☕']
+  ];
+  const FOODS = [
+    {emoji:'☕', pts:10,  w:55, grow:1, label:'+10 caféine !'},
+    {emoji:'🟩', pts:25,  w:30, grow:2, label:'+25 circuit imprimé !'},
+    {emoji:'💻', pts:50,  w:15, grow:3, label:'+50 ordinateur !'}
+  ];
+
+  function reset(){
+    snake = [{x:5,y:10},{x:4,y:10},{x:3,y:10}];
+    dir = {x:1,y:0}; nextDir = dir;
+    score = 0; speed = 7; bug = null; bugTimer = 0;
+    particles = [];
+    spawnFood();
+    updateHud();
+  }
+
+  function freeCell(){
+    let p;
+    do {
+      p = {x:(Math.random()*N)|0, y:(Math.random()*N)|0};
+    } while (snake.some(s=>s.x===p.x&&s.y===p.y) || (food&&food.x===p.x&&food.y===p.y) || (bug&&bug.x===p.x&&bug.y===p.y));
+    return p;
+  }
+
+  function spawnFood(){
+    const r = Math.random()*100;
+    let acc = 0, type = FOODS[0];
+    for (const f of FOODS){ acc += f.w; if (r < acc){ type = f; break; } }
+    food = { ...freeCell(), ...type };
+  }
+
+  function maybeSpawnBug(dt){
+    if (bug){ bug.ttl -= dt; if (bug.ttl <= 0) bug = null; return; }
+    bugTimer -= dt;
+    if (bugTimer <= 0 && score >= 50){
+      bug = { ...freeCell(), ttl: 6 };
+      bugTimer = 8 + Math.random()*6;
+    }
+  }
+
+  function updateHud(){
+    scoreEl.textContent = score;
+    bestEl.textContent = best;
+    let g = GRADES[0][1];
+    for (const [s,name] of GRADES) if (score >= s) g = name;
+    gradeEl.textContent = g;
+  }
+
+  function showToast(msg, color){
+    toast.textContent = msg;
+    toast.style.color = color || 'var(--gold)';
+    toast.classList.add('show');
+    clearTimeout(showToast.t);
+    showToast.t = setTimeout(()=>toast.classList.remove('show'), 900);
+  }
+
+  function burst(x, y, color){
+    for (let i=0;i<10;i++){
+      const a = Math.random()*Math.PI*2, v = 40+Math.random()*80;
+      particles.push({x:x*CELL+CELL/2, y:y*CELL+CELL/2, vx:Math.cos(a)*v, vy:Math.sin(a)*v, life:.5, color});
+    }
+  }
+
+  // ------- Boucle -------
+  function step(){
+    dir = nextDir;
+    const head = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
+
+    // murs = crash (la carte mère a des bords !)
+    if (head.x<0||head.y<0||head.x>=N||head.y>=N || snake.some(s=>s.x===head.x&&s.y===head.y)){
+      return gameOver();
+    }
+    snake.unshift(head);
+
+    if (head.x===food.x && head.y===food.y){
+      score += food.pts;
+      for (let i=1;i<food.grow;i++) snake.push({...snake[snake.length-1]});
+      burst(head.x, head.y, '#5ff0c0');
+      showToast(food.label);
+      speed = Math.min(16, 7 + score/120);
+      spawnFood();
+    } else {
+      snake.pop();
+    }
+
+    if (bug && head.x===bug.x && head.y===bug.y){
+      bug = null;
+      score = Math.max(0, score - 15);
+      burst(head.x, head.y, '#ff6b5e');
+      showToast('🐛 BUG ! −15 pts, −3 segments', 'var(--alert)');
+      for (let i=0;i<3 && snake.length>2;i++) snake.pop();
+    }
+    updateHud();
+  }
+
+  function gameOver(){
+    alive = false;
+    best = Math.max(best, score);
+    updateHud();
+    let g = GRADES[0][1];
+    for (const [s,name] of GRADES) if (score >= s) g = name;
+    overlay.querySelector('h2').textContent = 'KERNEL PANIC ✖';
+    overlay.querySelector('p').innerHTML =
+      `Segmentation fault !<br>Score final : <b style="color:var(--gold)">${score}</b><br><span class="grade">Grade atteint : ${g}</span>`;
+    btn.textContent = 'REBOOT & REJOUER';
+    overlay.classList.remove('hidden');
+  }
+
+  // ------- Rendu -------
+  function drawBoard(){
+    ctx.clearRect(0,0,cvs.width,cvs.height);
+    // pistes cuivre subtiles
+    ctx.strokeStyle = 'rgba(201,138,75,.10)';
+    ctx.lineWidth = 1;
+    for (let i=0;i<=N;i++){
+      ctx.beginPath(); ctx.moveTo(i*CELL,0); ctx.lineTo(i*CELL,cvs.height); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0,i*CELL); ctx.lineTo(cvs.width,i*CELL); ctx.stroke();
+    }
+    // "vias" cuivre aux coins de cellules (déco discrète)
+    ctx.fillStyle = 'rgba(201,138,75,.14)';
+    for (let x=2;x<N;x+=5) for (let y=2;y<N;y+=5){
+      ctx.beginPath(); ctx.arc(x*CELL, y*CELL, 1.6, 0, 7); ctx.fill();
+    }
+  }
+
+  function drawSnake(){
+    for (let i=snake.length-1;i>=0;i--){
+      const s = snake[i];
+      const t = i / snake.length;
+      const pad = 2 + t*2.2;
+      ctx.fillStyle = i===0 ? '#8dffdc' : `rgba(95,240,192,${1 - t*0.6})`;
+      ctx.shadowColor = 'rgba(95,240,192,.5)';
+      ctx.shadowBlur = i===0 ? 12 : 4;
+      roundRect(s.x*CELL+pad, s.y*CELL+pad, CELL-pad*2, CELL-pad*2, 4);
+      ctx.shadowBlur = 0;
+      // pattes de puce sur la tête
+      if (i===0){
+        ctx.fillStyle = '#06281a';
+        const cx = s.x*CELL+CELL/2, cy = s.y*CELL+CELL/2;
+        // yeux orientés
+        const ex = dir.x*3, ey = dir.y*3;
+        ctx.beginPath(); ctx.arc(cx-4+ex, cy-3+ey, 1.8, 0, 7); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx+4+ex, cy-3+ey, 1.8, 0, 7); ctx.fill();
+      }
+    }
+  }
+
+  function roundRect(x,y,w,h,r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.fill();
+  }
+
+  function drawEmoji(item, pulse){
+    const cx = item.x*CELL + CELL/2, cy = item.y*CELL + CELL/2;
+    ctx.save();
+    ctx.translate(cx, cy);
+    if (pulse) ctx.scale(pulse, pulse);
+    ctx.font = `${CELL-3}px serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(item.emoji, 0, 1);
+    ctx.restore();
+  }
+
+  function drawParticles(dt){
+    particles = particles.filter(p => (p.life -= dt) > 0);
+    for (const p of particles){
+      p.x += p.vx*dt; p.y += p.vy*dt;
+      ctx.globalAlpha = Math.max(0, p.life*2);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x-2, p.y-2, 4, 4);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  let time = 0;
+  function frame(t){
+    const dt = Math.min(.05, (t - lastT)/1000 || 0);
+    lastT = t; time += dt;
+
+    if (alive && !paused){
+      tickAcc += dt;
+      const tick = 1/speed;
+      while (tickAcc >= tick){ tickAcc -= tick; if (alive) step(); }
+      maybeSpawnBug(dt);
+    }
+
+    drawBoard();
+    if (food) drawEmoji(food, 1 + Math.sin(time*5)*.08);
+    if (bug){
+      const blink = bug.ttl < 2 ? (Math.sin(time*15)>0 ? 1 : .3) : 1;
+      ctx.globalAlpha = blink;
+      drawEmoji({...bug, emoji:'🐛'}, 1 + Math.sin(time*8)*.1);
+      ctx.globalAlpha = 1;
+    }
+    if (snake) drawSnake();
+    drawParticles(dt);
+
+    if (paused && alive){
+      ctx.fillStyle = 'rgba(6,20,12,.6)';
+      ctx.fillRect(0,0,cvs.width,cvs.height);
+      ctx.fillStyle = '#5ff0c0';
+      ctx.font = '18px Courier New';
+      ctx.textAlign = 'center';
+      ctx.fillText('⏸ PAUSE — Espace pour reprendre', cvs.width/2, cvs.height/2);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // ------- Contrôles -------
+  const DIRS = {up:{x:0,y:-1}, down:{x:0,y:1}, left:{x:-1,y:0}, right:{x:1,y:0}};
+  function turn(d){
+    const nd = DIRS[d];
+    if (!nd || (nd.x === -dir.x && nd.y === -dir.y)) return;
+    nextDir = nd;
+  }
+
+  addEventListener('keydown', e => {
+    const k = e.key.toLowerCase();
+    const map = {
+      arrowup:'up', z:'up', w:'up',
+      arrowdown:'down', s:'down',
+      arrowleft:'left', q:'left', a:'left',
+      arrowright:'right', d:'right'
+    };
+    if (map[k]){ e.preventDefault(); turn(map[k]); }
+    if (k === ' '){ e.preventDefault(); if (alive) paused = !paused; }
+  });
+
+  // swipe mobile
+  let tx=0, ty=0;
+  addEventListener('touchstart', e => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, {passive:true});
+  addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - tx, dy = e.changedTouches[0].clientY - ty;
+    if (Math.abs(dx) < 24 && Math.abs(dy) < 24) return;
+    if (Math.abs(dx) > Math.abs(dy)) turn(dx > 0 ? 'right' : 'left');
+    else turn(dy > 0 ? 'down' : 'up');
+  }, {passive:true});
+
+  document.querySelectorAll('#pad button').forEach(b =>
+    b.addEventListener('click', () => turn(b.dataset.d)));
+
+  btn.addEventListener('click', () => {
+    reset();
+    alive = true; paused = false; tickAcc = 0;
+    overlay.classList.add('hidden');
+  });
+
+  reset();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
