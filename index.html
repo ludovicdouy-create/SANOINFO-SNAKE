@@ -99,8 +99,14 @@
   #toast.show{opacity:1}
 
   /* pad tactile mobile */
-  #pad{display:none;margin-top:12px;z-index:1;grid-template-columns:repeat(3,58px);grid-template-rows:repeat(2,50px);gap:6px}
-  #pad button{padding:0;font-size:20px;background:var(--bg-light);color:var(--data);border:1px solid var(--trace-dim);box-shadow:none}
+  #pad{display:none;margin-top:14px;z-index:1;grid-template-columns:repeat(3,84px);grid-template-rows:repeat(2,72px);gap:10px}
+  #pad button{
+    padding:0;font-size:34px;line-height:1;
+    background:var(--bg-light);color:var(--data);
+    border:2px solid var(--data-dim);border-radius:12px;box-shadow:0 3px 0 rgba(0,0,0,.4);
+    touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+  }
+  #pad button:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.4);background:var(--data);color:#08243a}
   @media (pointer:coarse){ #pad{display:grid} }
   footer{margin-top:10px;font-size:10px;color:var(--data);letter-spacing:.12em;z-index:1;text-align:center}
   @media (prefers-reduced-motion:reduce){ button{transition:none} }
@@ -156,8 +162,10 @@
   // Grille adaptative (mobile)
   const CELL = 21, N = 20;
   function fit(){
-    const w = Math.min(window.innerWidth - 40, 440);
-    const size = Math.floor(w / N) * N;
+    const coarse = matchMedia('(pointer:coarse)').matches;
+    const reservedH = coarse ? 340 : 180;   // header + hud + pad tactile
+    const w = Math.min(window.innerWidth - 40, window.innerHeight - reservedH, 440);
+    const size = Math.max(240, Math.floor(w / N) * N);
     cvs.style.width = size + 'px';
     cvs.style.height = size + 'px';
   }
@@ -433,8 +441,10 @@
     else turn(dy > 0 ? 'down' : 'up');
   }, {passive:true});
 
-  document.querySelectorAll('#pad button').forEach(b =>
-    b.addEventListener('click', () => turn(b.dataset.d)));
+  document.querySelectorAll('#pad button').forEach(b => {
+    b.addEventListener('pointerdown', e => { e.preventDefault(); turn(b.dataset.d); });
+    b.addEventListener('click', e => e.preventDefault());
+  });
 
   btn.addEventListener('click', () => {
     reset();
